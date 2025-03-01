@@ -1,4 +1,5 @@
-// src/app/admin/categories/[id]/edit/page.tsx
+// src/app/admin/categories/[id]/edit/page.tsx;
+
 import { getCategories } from "@/app/actions/categoryActions";
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
@@ -22,16 +23,15 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
-type Props = {
-  params: { id: string };
-  searchParams?: { [key: string]: string | string[] | undefined };
-};
+// Define proper interface that matches Next.js 15 expectations
+interface CategoryPageParams {
+  params: {
+    id: string;
+  };
+  searchParams?: Record<string, string | string[] | undefined>;
+}
 
-export default async function EditCategoryPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function EditCategoryPage({ params }: CategoryPageParams) {
   const session = await auth();
 
   // Check if user is authenticated and is an admin
