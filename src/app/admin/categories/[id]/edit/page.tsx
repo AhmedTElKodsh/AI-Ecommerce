@@ -22,20 +22,18 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
-// Remove the custom interface that's causing the type conflict
-export default async function EditCategoryPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+// Use a more generic approach to avoid type conflicts with Next.js 15
+export default async function EditCategoryPage(props: any) {
+  const { id } = props.params;
+
   const session = await auth();
 
   // Check if user is authenticated and is an admin
   if (!session || session.user.role !== "ADMIN") {
-    redirect(`/login?callbackUrl=/admin/categories/${params.id}/edit`);
+    redirect(`/login?callbackUrl=/admin/categories/${id}/edit`);
   }
 
-  const { category, success } = await getCategories(params.id);
+  const { category, success } = await getCategories(id);
 
   if (!success || !category) {
     notFound();
