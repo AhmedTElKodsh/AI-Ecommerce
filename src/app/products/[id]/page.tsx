@@ -1,89 +1,78 @@
-// src/app/products/[id]/page.tsx
-import { getProductById } from "@/app/actions/productActions";
-import { notFound } from "next/navigation";
-import Image from "next/image";
-import Link from "next/link";
-import ProductImageGallery from "@/components/products/ProductImageGallery";
-import ProductAddToCart from "@/components/products/ProductAddToCart";
-import ProductRating from "@/components/products/ProductRating";
-import ProductReviews from "@/components/products/ProductReviews";
-import { FaArrowLeft } from "react-icons/fa";
+// src/app/products/page.tsx
+// Remove the unused import
+// import { getProducts } from "@/app/actions/productActions";
+import { getCategories } from "@/app/actions/categoryActions";
+import ProductList from "@/components/products/ProductList";
+import ProductFilter from "@/components/products/ProductFilter";
+import { Suspense } from "react";
+import { FaSearch } from "react-icons/fa";
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const { product, success } = await getProductById(params.id);
-  
-  if (!success || !product) {
-    return {
-      title: "Product Not Found | ShopNext",
-      description: "The requested product could not be found",
-    };
-  }
-  
-  return {
-    title: `${product.name} | ShopNext`,
-    description: product.description.substring(0, 160),
+export const metadata = {
+  title: "Products | ShopNext",
+  description: "Browse our collection of products",
+};
+
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: {
+    page?: string;
+    category?: string;
+    search?: string;
+    sort?: string;
   };
-}
+}) {
+  const page = searchParams.page ? parseInt(searchParams.page) : 1;
+  const { categories } = await getCategories();
 
-export default async function ProductPage({ params }: { params: { id: string } }) {
-  const { product, success, error } = await getProductById(params.id);
-  
-  if (!success || !product) {
-    notFound();
-  }
-  
   return (
     <div className="container mx-auto px-4 py-8">
-      <Link
-        href="/products"
-        className="text-indigo-600 hover:text-indigo-800 flex items-center mb-6"
-      >
-        <FaArrowLeft className="mr-2" /> Back to products
-      </Link>
+      <h1 className="text-3xl font-bold mb-8">Products</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        {/* Product Images */}
-        <ProductImageGallery
-          images={product.images}
-          productName={product.name}
-        />
+      <div className="flex flex-col md:flex-row gap-8">
+        {/* Filters Sidebar */}
+        <div className="w-full md:w-1/4">
+          <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
+            <h2 className="text-lg font-medium mb-4">Filters</h2>
 
-        {/* Product Info */}
-        <div>
-          <h1 className="text-3xl font-bold text-black mb-2">{product.name}</h1>
+            {/* Search */}
+            <form className="mb-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  name="search"
+                  defaultValue={searchParams.search || ""}
+                  placeholder="Search products..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                />
+                <button
+                  type="submit"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-indigo-600"
+                >
+                  <FaSearch />
+                </button>
+              </div>
+            </form>
 
-          <div className="flex items-center mb-4">
-            <Link
-              href={`/products?category=${product.category.id}`}
-              className="text-indigo-600 hover:underline"
-            >
-              {product.category.name}
-            </Link>
+            <ProductFilter
+              categories={categories || []}
+              selectedCategory={searchParams.category}
+              selectedSort={searchParams.sort}
+            />
           </div>
-
-          <ProductRating
-            rating={product.avgRating}
-            reviewCount={product.reviews.length}
-          />
-
-          <div className="text-2xl font-bold text-black mb-4">
-            ${product.price.toFixed(2)}
-          </div>
-
-          <div className="mb-6">
-            <p className="text-black whitespace-pre-line">
-              {product.description}
-            </p>
-          </div>
-
-          <ProductAddToCart product={product} />
         </div>
-      </div>
 
-      {/* Product Reviews */}
-      <div className="mt-12">
-        <h2 className="text-2xl font-bold mb-6">Customer Reviews</h2>
-        <ProductReviews reviews={product.reviews} productId={product.id} />
+        {/* Products Grid */}
+        <div className="w-full md:w-3/4">
+          <Suspense fallback={<div>Loading products...</div>}>
+            <ProductList
+              page={page}
+              category={searchParams.category}
+              search={searchParams.search}
+              sort={searchParams.sort}
+            />
+          </Suspense>
+        </div>
       </div>
     </div>
   );

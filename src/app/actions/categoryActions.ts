@@ -36,6 +36,7 @@ export async function getCategories(id?: string) {
   }
 }
 
+
 // Added missing createCategory function
 export async function createCategory(data: {
   name: string;
@@ -61,6 +62,27 @@ export async function createCategory(data: {
       success: false,
       error: "Failed to create category",
     };
+  }
+}
+
+export async function getCategoryById(id: string) {
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/categories/${id}`,
+      {
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch category");
+    }
+
+    const data = await response.json();
+    return { category: data, error: null };
+  } catch (error) {
+    console.error("Error fetching category:", error);
+    return { category: null, error: "Failed to load category details" };
   }
 }
 
