@@ -1,15 +1,17 @@
 // src/app/layout.tsx
+import { Metadata } from "next";
+import { Toaster } from "react-hot-toast";
 import { Inter } from "next/font/google";
-import "./globals.css";
+import { AuthProvider } from "@/components/providers/AuthProvider";
+import { CartProvider } from "@/components/providers/CartProvider";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { CartProvider } from "@/components/providers/CartProvider";
-import { AuthProvider } from "@/components/providers/AuthProvider";
+import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export const metadata = {
-  title: "ShopNext | Modern E-commerce",
+export const metadata: Metadata = {
+  title: "NextShop - E-commerce Website",
   description: "A modern e-commerce platform built with Next.js",
 };
 
@@ -20,14 +22,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body
+        className={`${inter.className} bg-gray-50 min-h-screen flex flex-col`}
+      >
+        <Toaster position="top-right" />
         <AuthProvider>
           <CartProvider>
-            <div className="flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-grow">{children}</main>
-              <Footer />
-            </div>
+            <Toaster position="top-right" />
+            <Header />
+            <main className="flex-grow">{children}</main>
+            <Footer />
           </CartProvider>
         </AuthProvider>
       </body>

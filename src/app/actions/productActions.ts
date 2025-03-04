@@ -5,6 +5,13 @@ import prisma from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 
+// Define an interface for the filters object
+interface ProductFilters {
+  categoryId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+}
+
 // Get products with filtering, sorting, and pagination
 export async function getProducts({
   page = 1,
@@ -124,6 +131,122 @@ export async function getProducts({
   }
 }
 
+export async function getAllProducts(
+  page = 1,
+  limit = 12,
+  sort = "newest",
+  filters: ProductFilters = {}
+) {
+  try {
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    // Build where clause from filters
+    const where: any = {};
+
+    // Category filter
+    if (filters.categoryId) {
+      where.categoryId = filters.categoryId;
+    }
+
+    // Price filters
+    if (filters.minPrice !== undefined) {
+      where.price = {
+        ...(where.price || {}),
+        gte: filters.minPrice,
+      };
+    }
+
+    if (filters.maxPrice !== undefined) {
+      where.price = {
+        ...(where.price || {}),
+        lte: filters.maxPrice,
+      };
+    }
+
+    // Rest of the function remains the same
+    // Determine sort order
+    let orderBy: any = { createdAt: "desc" };
+    if (sort === "price_asc") orderBy = { price: "asc" };
+    if (sort === "price_desc") orderBy = { price: "desc" };
+    if (sort === "name_asc") orderBy = { name: "asc" };
+    if (sort === "name_desc") orderBy = { name: "desc" };
+
+    // Get total count with filters
+    const totalProducts = await prisma.product.count({ where });
+
+    // Get products
+    const products = await prisma.product.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy,
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        reviews: true,
+      },
+    });
+
+    // Calculate average ratings
+    const productsWithRatings = products.map((product) => {
+      let avgRating = 0;
+      if (product.reviews.length > 0) {
+        avgRating =
+          product.reviews.reduce((sum, review) => sum + review.rating, 0) /
+          product.reviews.length;
+      }
+      return {
+        ...product,
+        avgRating,
+      };
+    });
+
+    return {
+      success: true,
+      products: productsWithRatings,
+      pagination: {
+        total: totalProducts,
+        pages: Math.ceil(totalProducts / limit),
+        current: page,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to fetch products:", error);
+    return { success: false, products: [], error: "Failed to fetch products" };
+  }
+}
+
+export async function getProductsByCategory(
+  categoryId: string,
+  page = 1,
+  limit = 12,
+  sort = "newest",
+  filters: ProductFilters = {}
+) {
+  try {
+    // Build filters including the category
+    const categoryFilters: ProductFilters = {
+      ...filters,
+      categoryId: categoryId,
+    };
+
+    // Reuse the getAllProducts function with category filter
+    return await getAllProducts(page, limit, sort, categoryFilters);
+  } catch (error) {
+    console.error("Failed to fetch category products:", error);
+    return {
+      success: false,
+      products: [],
+      error: "Failed to fetch category products",
+    };
+  }
+}
+
 // Get product by ID
 export async function getProductById(id: string) {
   try {
@@ -142,11 +265,11 @@ export async function getProductById(id: string) {
               select: {
                 id: true,
                 name: true,
+                // Removed 'image' field which doesn't exist in the User model
+                // If you have a user image field with a different name, use that instead
+                // For example: avatar: true, or profilePicture: true
               },
             },
-          },
-          orderBy: {
-            createdAt: "desc",
           },
         },
       },
@@ -156,15 +279,21 @@ export async function getProductById(id: string) {
       return { success: false, error: "Product not found" };
     }
 
-    // Calculate average rating
-    const reviews = product.reviews || [];
-    const avgRating =
-      reviews.length > 0
-        ? reviews.reduce((sum, review) => sum + review.rating, 0) /
-          reviews.length
-        : 0;
+    // Calculate average rating if there are reviews
+    let avgRating = 0;
+    if (product.reviews.length > 0) {
+      avgRating =
+        product.reviews.reduce((sum, review) => sum + review.rating, 0) /
+        product.reviews.length;
+    }
 
-    return { success: true, product: { ...product, avgRating } };
+    return {
+      success: true,
+      product: {
+        ...product,
+        avgRating,
+      },
+    };
   } catch (error) {
     console.error("Failed to fetch product:", error);
     return { success: false, error: "Failed to fetch product" };

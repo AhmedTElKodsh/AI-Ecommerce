@@ -1,16 +1,14 @@
-// auth.ts
-import NextAuth from "next-auth";
+// src/auth.ts
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import NextAuth, { NextAuthOptions } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import prisma from "@/lib/db";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/login",
-  },
+export const authConfig: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -31,73 +29,53 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const passwordMatch = await bcrypt.compare(
+        const isPasswordValid = await bcrypt.compare(
           credentials.password,
           user.password
         );
 
-        if (!passwordMatch) {
+        if (!isPasswordValid) {
           return null;
         }
 
         return {
           id: user.id,
-          name: user.name,
           email: user.email,
+          name: user.name,
           role: user.role,
         };
       },
     }),
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    }),
   ],
+  pages: {
+    signIn: "/auth/signin",
+    signOut: "/auth/signout",
+    error: "/auth/error",
+    newUser: "/auth/register",
+  },
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
+        token.role = user.role || "USER";
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
+      if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
       }
       return session;
     },
   },
-});
-
-// Define proper types for the auth and request parameters
-type AuthParam = {
-  user?: {
-    id: string;
-    role: string;
-  } | null;
 };
 
-type RequestParam = {
-  nextUrl: {
-    pathname: string;
-  };
-};
-
-export const authConfig = {
-  pages: {
-    signIn: "/login",
-  },
-  callbacks: {
-    authorized({ auth, request }: { auth: AuthParam; request: RequestParam }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnAdmin = request.nextUrl.pathname.startsWith("/admin");
-
-      if (isOnAdmin) {
-        if (!isLoggedIn) return false;
-        const isAdmin = auth?.user?.role === "ADMIN";
-        return isAdmin;
-      }
-
-      return true;
-    },
-  },
-  providers: [], // This is needed for the authConfig object
-};
+export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);

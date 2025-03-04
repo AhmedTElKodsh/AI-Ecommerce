@@ -40,13 +40,15 @@ export default function ProductAddToCart({ product }: { product: Product }) {
   const handleAddToCart = () => {
     setIsAdding(true);
 
-    // Add item to cart
+    // Add item to cart with a more explicit check for the image
     addItem({
       id: product.id,
       name: product.name,
       price: product.price,
       image:
-        product.images && product.images.length > 0 ? product.images[0] : "",
+        product.images && product.images.length > 0
+          ? product.images[0] || "" // Ensure it's not undefined
+          : "",
       quantity,
     });
 

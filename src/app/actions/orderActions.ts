@@ -1,4 +1,4 @@
-// app/actions/orderActions.ts
+// src/app/actions/orderActions.ts
 "use server";
 
 import prisma from "@/lib/db";
@@ -50,15 +50,15 @@ export async function getOrders({
     const session = await auth();
 
     // Check if user is authenticated and is an admin for all orders
-    if (!userId && (!session || session.user.role !== "ADMIN")) {
+    if (!userId && (!session || session.user?.role !== "ADMIN")) {
       return { success: false, error: "Unauthorized" };
     }
 
     // If userId is provided, check if it matches the current user or if user is admin
     if (
       userId &&
-      session?.user.id !== userId &&
-      session?.user.role !== "ADMIN"
+      session?.user?.id !== userId &&
+      session?.user?.role !== "ADMIN"
     ) {
       return { success: false, error: "Unauthorized" };
     }
@@ -162,7 +162,7 @@ export async function getOrderById(id: string) {
     // Check if user is authorized to view this order
     if (
       !session ||
-      (session.user.id !== order.userId && session.user.role !== "ADMIN")
+      (session.user?.id !== order.userId && session.user?.role !== "ADMIN")
     ) {
       return { success: false, error: "Unauthorized" };
     }
@@ -202,16 +202,26 @@ export async function createOrder({
     // Start a transaction
     const order = await prisma.$transaction(async (tx) => {
       // Create the order
+      const orderData: any = {
+        total,
+        status: "PENDING",
+        paymentStatus: "PENDING",
+        shippingAddress,
+        paymentMethod,
+      };
+
+      // Add userId if available, otherwise use email for guest checkout
+      if (userId) {
+        orderData.userId = userId;
+      } else {
+        // For guest checkout, store email in a custom field if your schema supports it
+        // If your schema doesn't have an email field, you might need to modify it
+        // or store this information in the shippingAddress field
+        orderData.shippingAddress = `Email: ${email}\n${shippingAddress}`;
+      }
+
       const order = await tx.order.create({
-        data: {
-          total,
-          status: "PENDING",
-          paymentStatus: "PENDING",
-          shippingAddress,
-          paymentMethod,
-          ...(userId ? { userId } : {}),
-          ...(userId ? {} : { email }),
-        },
+        data: orderData,
       });
 
       // Create order items
@@ -272,7 +282,7 @@ export async function updateOrderStatus(formData: FormData) {
     const session = await auth();
 
     // Check if user is authenticated and is an admin
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || session.user?.role !== "ADMIN") {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -308,7 +318,7 @@ export async function updatePaymentStatus(formData: FormData) {
     const session = await auth();
 
     // Check if user is authenticated and is an admin
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || session.user?.role !== "ADMIN") {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -366,7 +376,7 @@ export async function cancelOrder(formData: FormData) {
     // Check if user is authorized to cancel this order
     if (
       !session ||
-      (session.user.id !== order.userId && session.user.role !== "ADMIN")
+      (session.user?.id !== order.userId && session.user?.role !== "ADMIN")
     ) {
       return { success: false, error: "Unauthorized" };
     }

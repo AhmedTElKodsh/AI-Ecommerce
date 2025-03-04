@@ -121,7 +121,7 @@ export default async function Home() {
                   <div className="relative h-48">
                     {product.images && product.images.length > 0 ? (
                       <Image
-                        src={product.images[0]}
+                        src={product.images[0] as string} // Add type assertion to fix the error
                         alt={product.name}
                         fill
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"

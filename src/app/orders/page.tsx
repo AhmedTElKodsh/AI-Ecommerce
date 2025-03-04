@@ -1,145 +1,177 @@
-// src/app/orders/page.tsx
-import { getOrders } from "@/app/actions/orderActions";
-import { auth } from "@/auth";
+// src / app / orders / page.tsx;
+import { getServerAuthSession } from "../../auth";
 import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
-import { FaBoxOpen, FaShoppingBag } from "react-icons/fa";
+import { Order, OrderItem, Product } from "@prisma/client";
 
-export const metadata = {
-  title: "My Orders | ShopNext",
-  description: "View your order history",
+// Define proper TypeScript interfaces for our data
+type OrderWithItems = Order & {
+  items: (OrderItem & {
+    product: Pick<Product, "id" | "name" | "images">;
+  })[];
 };
 
+// Type for serialized order data
+interface SerializedOrder {
+  id: string;
+  status: string;
+  total: string;
+  createdAt: string;
+  items: {
+    id: string;
+    quantity: number;
+    price: string;
+    product: {
+      id: string;
+      name: string;
+      images: string[] | null; // Changed from string | null to string[] | null
+    };
+  }[];
+}
+
 export default async function OrdersPage() {
-  const session = await auth();
-  
-  // Redirect to login if not authenticated
-  if (!session) {
-    redirect("/login?callbackUrl=/orders");
+  // Get the user session
+  const session = await getServerAuthSession();
+
+  // If no session, redirect to login
+  if (!session || !session.user) {
+    redirect("/login");
   }
-  
-  const { orders, success, error } = await getOrders();
-  
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">My Orders</h1>
 
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-          <p className="text-red-700">{error}</p>
-        </div>
-      )}
+  try {
+    // Fetch orders from database with proper Prisma query
+    const orders = (await prisma.order.findMany({
+      where: {
+        userId: session.user.id,
+      },
+      include: {
+        items: {
+          // Relation is named 'items' in your schema
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                images: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })) as unknown as OrderWithItems[]; // Cast to our interface to handle the type
 
-      {success && orders && orders.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FaBoxOpen className="text-indigo-600 text-xl" />
+    // Transform data to ensure it's serializable
+    const serializedOrders: SerializedOrder[] = orders.map((order) => ({
+      id: order.id,
+      status: order.status,
+      total: order.total.toString(), // Convert Decimal to string
+      createdAt: order.createdAt.toISOString(),
+      items: order.items.map((item) => ({
+        id: item.id,
+        quantity: item.quantity,
+        price: item.price.toString(), // Convert Decimal to string
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          images: item.product.images, // This is now correctly typed as string[]
+        },
+      })),
+    }));
+
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <h1 className="text-2xl font-bold mb-6">Your Orders</h1>
+
+        {serializedOrders.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-4">
+              You haven't placed any orders yet.
+            </p>
+            <Link
+              href="/products"
+              className="inline-block bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Browse Products
+            </Link>
           </div>
+        ) : (
+          <div className="space-y-6">
+            {serializedOrders.map((order) => (
+              <div key={order.id} className="border rounded-lg p-6 shadow-sm">
+                <div className="flex flex-wrap justify-between items-center mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      Order #{order.id.substring(0, 8)}
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="px-3 py-1 text-sm rounded-full bg-blue-100 text-blue-800">
+                      {order.status}
+                    </span>
+                  </div>
+                </div>
 
-          <h2 className="text-2xl font-semibold mb-2">No orders yet</h2>
+                <div className="divide-y">
+                  {order.items.map((item) => (
+                    <div key={item.id} className="py-4 flex items-center">
+                      <div className="flex-shrink-0 h-16 w-16 bg-gray-100 rounded">
+                        {item.product.images &&
+                          item.product.images.length > 0 && (
+                            <img
+                              src={item.product.images[0]} // Use the first image in the array
+                              alt={item.product.name}
+                              className="h-full w-full object-cover rounded"
+                            />
+                          )}
+                      </div>
+                      <div className="ml-4 flex-1">
+                        <h3 className="text-sm font-medium">
+                          {item.product.name}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          Qty: {item.quantity} × ${item.price}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-          <p className="text-gray-600 mb-6">
-            You haven't placed any orders yet. Start shopping to place your
-            first order.
+                <div className="mt-4 pt-4 border-t">
+                  <div className="flex justify-between font-medium">
+                    <span>Total</span>
+                    <span>${order.total}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <h1 className="text-2xl font-bold mb-6">Your Orders</h1>
+        <div className="text-center py-8">
+          <p className="text-red-600 mb-4">
+            Error loading orders. Please try again later.
           </p>
-
           <Link
-            href="/products"
-            className="inline-block bg-indigo-600 text-white py-2 px-6 rounded-md hover:bg-indigo-700"
+            href="/"
+            className="inline-block bg-blue-600 text-white px-4 py-2 rounded"
           >
-            Start Shopping
+            Return Home
           </Link>
         </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Order ID
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Date
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Status
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Total
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {orders && orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-medium text-gray-900">
-                        #{order.id.slice(-6).toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-500">
-                        {formatDate(order.createdAt)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          order.status === "COMPLETED"
-                            ? "bg-green-100 text-green-800"
-                            : order.status === "PROCESSING"
-                            ? "bg-blue-100 text-blue-800"
-                            : order.status === "SHIPPED"
-                            ? "bg-purple-100 text-purple-800"
-                            : order.status === "CANCELLED"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {order.status.charAt(0) +
-                          order.status.slice(1).toLowerCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-900">
-                        ${order.total.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/orders/${order.id}`}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        View Details
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
 }

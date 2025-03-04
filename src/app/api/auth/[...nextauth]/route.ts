@@ -1,3 +1,4 @@
+// src/app/api/auth/[...nextauth]/route.ts
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -24,6 +25,12 @@ export const authOptions: NextAuthOptions = {
           throw new Error("User not found");
         }
 
+        // Check if password exists in the user record
+        if (!user.password) {
+          throw new Error("Account has no password set");
+        }
+
+        // Now we can safely compare as we've verified password is not null
         const isPasswordValid = await bcrypt.compare(
           credentials.password,
           user.password
@@ -46,7 +53,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
+        token.role = user.role as string; // Add type assertion here
       }
       return token;
     },

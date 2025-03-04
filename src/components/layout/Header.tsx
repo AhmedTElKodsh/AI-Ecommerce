@@ -1,205 +1,125 @@
 // src/components/layout/Header.tsx
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useCart } from "@/components/providers/CartProvider";
-import { FaShoppingCart, FaUser, FaBars, FaTimes } from "react-icons/fa";
+import { FaShoppingCart, FaUser } from "react-icons/fa";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 export default function Header() {
-  const pathname = usePathname();
+  const { itemCount } = useCart();
   const { data: session } = useSession();
-  const { totalItems } = useCart();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  // Handle scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // Toggle mobile menu
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
-    <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? "bg-white shadow-md py-2"
-          : "bg-white bg-opacity-90 py-4"
-      }`}
-    >
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center">
-          {/* Logo */}
-          <Link href="/" className="text-2xl font-bold text-indigo-600">
-            ShopNext
+    <header className="bg-white shadow-sm sticky top-0 z-10">
+      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <Link href="/" className="text-xl font-bold text-indigo-600">
+          NextShop
+        </Link>
+
+        <nav className="hidden md:flex space-x-8">
+          <Link
+            href="/"
+            className="text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            Home
+          </Link>
+          <Link
+            href="/products"
+            className="text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            Products
+          </Link>
+          <Link
+            href="/categories"
+            className="text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            Categories
+          </Link>
+        </nav>
+
+        <div className="flex items-center space-x-4">
+          <Link
+            href="/cart"
+            className="relative text-gray-700 hover:text-indigo-600 transition-colors"
+          >
+            <FaShoppingCart className="text-xl" />
+            {itemCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                {itemCount}
+              </span>
+            )}
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link
-              href="/"
-              className={`hover:text-indigo-600 ${
-                pathname === "/" ? "text-indigo-600 font-medium" : "text-gray-700"
-              }`}
-            >
-              Home
-            </Link>
-            <Link
-              href="/products"
-              className={`hover:text-indigo-600 ${
-                pathname === "/products" || pathname.startsWith("/products/")
-                  ? "text-indigo-600 font-medium"
-                  : "text-gray-700"
-              }`}
-            >
-              Products
-            </Link>
-            <Link
-              href="/categories"
-              className={`hover:text-indigo-600 ${
-                pathname === "/categories" || pathname.startsWith("/categories/")
-                  ? "text-indigo-600 font-medium"
-                  : "text-gray-700"
-              }`}
-            >
-              Categories
-            </Link>
-            <Link
-              href="/contact"
-              className={`hover:text-indigo-600 ${
-                pathname === "/contact"
-                  ? "text-indigo-600 font-medium"
-                  : "text-gray-700"
-              }`}
-            >
-              Contact
-            </Link>
-          </nav>
-
-          {/* User Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Cart */}
-            <Link
-              href="/cart"
-              className="relative p-2 text-gray-700 hover:text-indigo-600"
-              aria-label="Shopping Cart"
-            >
-              <FaShoppingCart size={20} />
-              {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {totalItems > 9 ? "9+" : totalItems}
-                </span>
-              )}
-            </Link>
-
-            {/* User Menu */}
-            {session ? (
-              <Link
-                href="/profile"
-                className="p-2 text-gray-700 hover:text-indigo-600"
-                aria-label="User Profile"
-              >
-                <FaUser size={20} />
-              </Link>
-            ) : (
-              <Link
-                href="/login"
-                className="hidden md:inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-              >
-                Sign In
-              </Link>
-            )}
-
-            {/* Mobile Menu Button */}
+          <div className="relative">
             <button
-              className="md:hidden p-2 text-gray-700 hover:text-indigo-600"
-              onClick={toggleMenu}
-              aria-label={isMenuOpen ? "Close Menu" : "Open Menu"}
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="text-gray-700 hover:text-indigo-600 transition-colors focus:outline-none"
             >
-              {isMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
+              <FaUser className="text-xl" />
             </button>
+
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                {session ? (
+                  <>
+                    <Link
+                      href="/account"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      My Account
+                    </Link>
+                    <Link
+                      href="/account/orders"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      My Orders
+                    </Link>
+                    {session.user.role === "ADMIN" && (
+                      <Link
+                        href="/admin"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        // signOut();
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/auth/signin"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Register
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <nav className="md:hidden py-4 border-t mt-4">
-            <ul className="space-y-4">
-              <li>
-                <Link
-                  href="/"
-                  className={`block py-2 ${
-                    pathname === "/" ? "text-indigo-600 font-medium" : "text-gray-700"
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/products"
-                  className={`block py-2 ${
-                    pathname === "/products" || pathname.startsWith("/products/")
-                      ? "text-indigo-600 font-medium"
-                      : "text-gray-700"
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Products
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/categories"
-                  className={`block py-2 ${
-                    pathname === "/categories" || pathname.startsWith("/categories/")
-                      ? "text-indigo-600 font-medium"
-                      : "text-gray-700"
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Categories
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/contact"
-                  className={`block py-2 ${
-                    pathname === "/contact"
-                      ? "text-indigo-600 font-medium"
-                      : "text-gray-700"
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Contact
-                </Link>
-              </li>
-              {!session && (
-                <li>
-                  <Link
-                    href="/login"
-                    className="block py-2 text-indigo-600 font-medium"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Sign In
-                  </Link>
-                </li>
-              )}
-            </ul>
-          </nav>
-        )}
       </div>
     </header>
   );

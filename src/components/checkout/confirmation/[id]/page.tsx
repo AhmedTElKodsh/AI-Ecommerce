@@ -3,7 +3,9 @@ import { getCart } from "@/app/actions/cartActions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FaArrowLeft } from "react-icons/fa";
-import CheckoutForm from "@/components/checkout/CheckoutForm";
+// Changed to named import for CheckoutForm (assuming it's a named export)
+import { CheckoutForm } from "@/components/checkout/CheckoutForm";
+// Changed to default import for OrderSummary
 import OrderSummary from "@/components/checkout/OrderSummary";
 import { auth } from "@/auth";
 
@@ -36,7 +38,8 @@ export default async function CheckoutPage() {
     0
   );
   const shipping = 0; // Free shipping for now
-  const total = subtotal + shipping;
+  const tax = subtotal * 0.08; // Calculate tax (8% of subtotal)
+  const total = subtotal + shipping + tax;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -59,7 +62,13 @@ export default async function CheckoutPage() {
 
         {/* Order Summary */}
         <div className="lg:col-span-4 mt-8 lg:mt-0">
-          <OrderSummary cartItems={cartItems} />
+          <OrderSummary
+            items={cartItems}
+            subtotal={subtotal}
+            shipping={shipping}
+            tax={tax} // Added the missing tax prop
+            total={total}
+          />
         </div>
       </div>
     </div>

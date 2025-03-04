@@ -1,4 +1,4 @@
-// src/app/admin/orders/page.tsx
+// src / app / admin / orders / page.tsx;
 import Link from "next/link";
 import { getOrders } from "@/app/actions/orderActions";
 import { FaEye } from "react-icons/fa";
@@ -275,7 +275,7 @@ export default async function AdminOrdersPage({
             </div>
           </div>
 
-          {/* Pagination */}
+          {/* Pagination - Fixed to properly render all page numbers */}
           {pagination && pagination.pages > 1 && (
             <div className="mt-6 flex justify-center">
               <nav className="flex items-center space-x-2">
@@ -297,20 +297,26 @@ export default async function AdminOrdersPage({
                       pageNum === pagination.pages ||
                       Math.abs(pageNum - pagination.current) <= 1
                   )
-                  .map((pageNum, i, filteredPages) => {
-                    // Add ellipsis
-                    if (i > 0 && filteredPages[i] - filteredPages[i - 1] > 1) {
-                      return (
-                        <span
-                          key={`ellipsis-${pageNum}`}
-                          className="px-3 py-1 text-gray-500"
-                        >
-                          ...
-                        </span>
-                      );
+                  .flatMap((pageNum, i, filteredPages) => {
+                    const result = [];
+
+                    // Add ellipsis if there's a gap between pages
+                    if (i > 0) {
+                      const prevPageNum = filteredPages[i - 1];
+                      if (prevPageNum && pageNum - prevPageNum > 1) {
+                        result.push(
+                          <span
+                            key={`ellipsis-${pageNum}`}
+                            className="px-3 py-1 text-gray-500"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
                     }
 
-                    return (
+                    // Add the page link
+                    result.push(
                       <Link
                         key={pageNum}
                         href={`/admin/orders?page=${pageNum}${
@@ -325,6 +331,8 @@ export default async function AdminOrdersPage({
                         {pageNum}
                       </Link>
                     );
+
+                    return result;
                   })}
 
                 {pagination.current < pagination.pages && (

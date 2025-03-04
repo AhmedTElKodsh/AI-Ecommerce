@@ -103,7 +103,9 @@ export default async function AdminOrderDetailPage({
                     <div className="w-16 h-16 relative flex-shrink-0">
                       {item.product.images && item.product.images.length > 0 ? (
                         <Image
-                          src={item.product.images[0]}
+                          src={
+                            item.product.images[0] ?? "/images/placeholder.jpg"
+                          }
                           alt={item.product.name}
                           fill
                           sizes="64px"

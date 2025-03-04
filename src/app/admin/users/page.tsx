@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import Link from "next/link";
-import { FaEnvelope, FaUserEdit, FaTrash } from "react-icons/fa";
+import { FaEnvelope, FaUserEdit, FaTrash, FaUserCog } from "react-icons/fa";
 import prisma from "@/lib/db";
 import { Prisma } from "@prisma/client";
 
@@ -164,18 +164,64 @@ export default async function AdminUsersPage({
                         >
                           <FaUserEdit />
                         </Link>
-                        {/* Don't allow deleting the current admin user */}
+                        {/* Toggle role button */}
                         {user.id !== session.user.id && (
-                          <button
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete User"
-                            onClick={() => {
-                              // This would be replaced with a proper delete confirmation modal
-                              alert("Delete user functionality would go here");
+                          <form
+                            action={async () => {
+                              "use server";
+                              // Toggle user role
+                              await prisma.user.update({
+                                where: { id: user.id },
+                                data: {
+                                  role:
+                                    user.role === "ADMIN" ? "USER" : "ADMIN",
+                                },
+                              });
                             }}
                           >
-                            <FaTrash />
-                          </button>
+                            <button
+                              type="submit"
+                              className="text-purple-600 hover:text-purple-900"
+                              title={
+                                user.role === "ADMIN"
+                                  ? "Make User"
+                                  : "Make Admin"
+                              }
+                            >
+                              <FaUserCog />
+                            </button>
+                          </form>
+                        )}
+                        {/* Don't allow deleting the current admin user */}
+                        {user.id !== session.user.id && (
+                          <form
+                            action={async () => {
+                              "use server";
+                              // Delete user
+                              await prisma.user.delete({
+                                where: { id: user.id },
+                              });
+                            }}
+                          >
+                            <button
+                              type="submit"
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete User"
+                              onClick={(e) => {
+                                if (
+                                  !confirm(
+                                    `Are you sure you want to delete ${
+                                      user.name || user.email
+                                    }?`
+                                  )
+                                ) {
+                                  e.preventDefault();
+                                }
+                              }}
+                            >
+                              <FaTrash />
+                            </button>
+                          </form>
                         )}
                       </div>
                     </td>

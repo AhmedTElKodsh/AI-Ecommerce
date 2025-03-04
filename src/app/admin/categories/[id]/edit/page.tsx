@@ -1,15 +1,41 @@
 // src/app/admin/categories/[id]/edit/page.tsx
-import { getCategories } from "@/app/actions/categoryActions";
+import { getCategoryById } from "@/app/actions/categoryActions";
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import CategoryForm from "../../CategoryForm";
 import Link from "next/link";
 import { FaArrowLeft } from "react-icons/fa";
+import { Metadata, ResolvingMetadata } from "next";
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const { category, success } = await getCategories(params.id);
+// Define types for category and response
+type Category = {
+  id: string;
+  name: string;
+  // Add other category properties as needed
+};
 
-  if (!success || !category) {
+// Define the result type from getCategoryById
+type CategoryResult =
+  | {
+      category?: Category;
+      error?: string;
+    }
+  | null
+  | undefined;
+
+type Props = {
+  params: { id: string };
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
+export async function generateMetadata(
+  { params }: Props,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const result = (await getCategoryById(params.id)) as unknown as CategoryResult;
+
+  // Check if category exists using proper type checking
+  if (!result || "error" in result || !result.category) {
     return {
       title: "Category Not Found",
       description: "The requested category could not be found.",
@@ -17,25 +43,23 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   }
 
   return {
-    title: `Edit ${category.name} | Admin Dashboard`,
-    description: `Edit the ${category.name} category`,
+    title: `Edit ${result.category.name} | Admin Dashboard`,
+    description: `Edit the ${result.category.name} category`,
   };
 }
 
-// Use a more generic approach to avoid type conflicts with Next.js 15
-export default async function EditCategoryPage(props: any) {
-  const { id } = props.params;
-
+export default async function EditCategoryPage({ params }: Props) {
   const session = await auth();
 
   // Check if user is authenticated and is an admin
   if (!session || session.user.role !== "ADMIN") {
-    redirect(`/login?callbackUrl=/admin/categories/${id}/edit`);
+    redirect(`/login?callbackUrl=/admin/categories/${params.id}/edit`);
   }
 
-  const { category, success } = await getCategories(id);
+  const result = (await getCategoryById(params.id)) as unknown as CategoryResult;
 
-  if (!success || !category) {
+  // Check if category exists using proper type checking
+  if (!result || "error" in result || !result.category) {
     notFound();
   }
 
@@ -51,9 +75,9 @@ export default async function EditCategoryPage(props: any) {
       </div>
 
       <h1 className="text-3xl font-bold mb-8">
-        Edit Category: {category.name}
+        Edit Category: {result.category.name}
       </h1>
-      <CategoryForm category={category} />
+      <CategoryForm category={result.category} />
     </div>
   );
 }

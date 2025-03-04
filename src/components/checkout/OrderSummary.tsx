@@ -2,96 +2,110 @@
 import Image from "next/image";
 import Link from "next/link";
 
-type CartItem = {
+interface CartItem {
   id: string;
   name: string;
   price: number;
-  image?: string;
   quantity: number;
-};
+  image?: string;
+}
 
-type OrderSummaryProps = {
-  cartItems: CartItem[];
-};
+interface OrderSummaryProps {
+  items: CartItem[];
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  total: number;
+}
 
-export default function OrderSummary({ cartItems }: OrderSummaryProps) {
-  // Calculate totals
-  const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const shipping = subtotal > 100 ? 0 : 10; // Free shipping over $100
-  const tax = subtotal * 0.08; // 8% tax
-  const total = subtotal + shipping + tax;
+export default function OrderSummary({
+  items,
+  subtotal,
+  shipping,
+  tax,
+  total,
+}: OrderSummaryProps) {
+  // Helper function to format price
+  const formatPrice = (price: number): string => {
+    return price.toFixed(2);
+  };
 
   return (
-    <div className="bg-gray-50 rounded-lg p-6 sticky top-6">
-      <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
-      
-      <div className="divide-y divide-gray-200">
-        {/* Items */}
-        <div className="pb-4">
-          <ul className="space-y-3">
-            {cartItems.map((item) => (
-              <li key={item.id} className="flex items-start">
-                <div className="relative h-16 w-16 rounded-md overflow-hidden flex-shrink-0">
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      sizes="64px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">
-                      No image
-                    </div>
-                  )}
+    <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
+      <h2 className="text-xl font-semibold mb-6">Order Summary</h2>
+
+      {/* Cart Items Summary */}
+      <div className="space-y-4 mb-6">
+        {items.map((item) => (
+          <div key={item.id} className="flex items-start">
+            <div className="h-16 w-16 relative flex-shrink-0">
+              {item.image ? (
+                <Image
+                  src={item.image}
+                  alt={item.name}
+                  fill
+                  sizes="64px"
+                  className="object-cover rounded"
+                />
+              ) : (
+                <div className="h-16 w-16 bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">
+                  No image
                 </div>
-                <div className="ml-4 flex-1">
-                  <h4 className="text-sm font-medium text-gray-900">
-                    <Link href={`/products/${item.id}`} className="hover:text-indigo-600">
-                      {item.name}
-                    </Link>
-                  </h4>
-                  <p className="text-sm text-gray-500">
-                    Qty: {item.quantity}
-                  </p>
-                  <p className="text-sm font-medium text-gray-900">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
+              )}
+            </div>
+            <div className="ml-4 flex-1">
+              <h3 className="text-sm font-medium text-gray-900">{item.name}</h3>
+              <p className="text-sm text-gray-500">
+                {item.quantity} x ${formatPrice(item.price)}
+              </p>
+            </div>
+            <div className="text-sm font-medium text-gray-900">
+              ${formatPrice(item.price * item.quantity)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Price Breakdown */}
+      <div className="border-t border-gray-200 pt-4 space-y-4">
+        <div className="flex justify-between">
+          <p className="text-sm text-gray-600">Subtotal</p>
+          <p className="text-sm font-medium text-gray-900">
+            ${formatPrice(subtotal)}
+          </p>
         </div>
-        
-        {/* Totals */}
-        <div className="py-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <p className="text-gray-600">Subtotal</p>
-            <p className="text-gray-900">${subtotal.toFixed(2)}</p>
-          </div>
-          <div className="flex justify-between text-sm">
-            <p className="text-gray-600">Shipping</p>
-            <p className="text-gray-900">
-              {shipping === 0 ? "Free" : `$${shipping.toFixed(2)}`}
-            </p>
-          </div>
-          <div className="flex justify-between text-sm">
-            <p className="text-gray-600">Tax (8%)</p>
-            <p className="text-gray-900">${tax.toFixed(2)}</p>
-          </div>
+        <div className="flex justify-between">
+          <p className="text-sm text-gray-600">Shipping</p>
+          <p className="text-sm font-medium text-gray-900">
+            {shipping === 0 ? "Free" : `$${formatPrice(shipping)}`}
+          </p>
         </div>
-        
-        {/* Total */}
-        <div className="pt-4">
-          <div className="flex justify-between">
-            <p className="text-base font-medium text-gray-900">Total</p>
-            <p className="text-base font-medium text-gray-900">
-              ${total.toFixed(2)}
-            </p>
+        <div className="flex justify-between">
+          <p className="text-sm text-gray-600">Tax</p>
+          <p className="text-sm font-medium text-gray-900">
+            ${formatPrice(tax)}
+          </p>
+        </div>
+        <div className="flex justify-between border-t border-gray-200 pt-4">
+          <p className="text-base font-medium text-gray-900">Total</p>
+          <p className="text-base font-medium text-gray-900">
+            ${formatPrice(total)}
+          </p>
+        </div>
+      </div>
+
+      {/* Payment Methods */}
+      <div className="mt-6">
+        <p className="text-sm text-gray-600 mb-2">We accept:</p>
+        <div className="flex space-x-2">
+          <div className="h-8 w-12 bg-blue-100 rounded flex items-center justify-center text-blue-800 text-xs font-medium">
+            PayPal
+          </div>
+          <div className="h-8 w-12 bg-gray-100 rounded flex items-center justify-center text-gray-800 text-xs font-medium">
+            Visa
+          </div>
+          <div className="h-8 w-12 bg-gray-100 rounded flex items-center justify-center text-gray-800 text-xs font-medium">
+            MC
           </div>
         </div>
       </div>

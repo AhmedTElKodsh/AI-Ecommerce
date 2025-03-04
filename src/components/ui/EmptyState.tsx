@@ -1,12 +1,12 @@
 // src/components/ui/EmptyState.tsx
-import React from "react";
+import { ReactNode } from "react";
 
-type EmptyStateProps = {
+interface EmptyStateProps {
   title: string;
   description: string;
-  icon: React.ReactNode;
-  action?: React.ReactNode;
-};
+  icon: ReactNode;
+  action?: ReactNode;
+}
 
 export default function EmptyState({
   title,
@@ -15,13 +15,13 @@ export default function EmptyState({
   action,
 }: EmptyStateProps) {
   return (
-    <div className="bg-white rounded-lg shadow-md p-8 text-center">
-      <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gray-100 mb-4">
+    <div className="bg-white p-8 rounded-lg shadow-md text-center">
+      <div className="mx-auto flex items-center justify-center h-12 w-12 text-gray-400 mb-4">
         {icon}
       </div>
-      <h2 className="text-2xl font-semibold mb-2">{title}</h2>
+      <h2 className="text-xl font-medium mb-2">{title}</h2>
       <p className="text-gray-600 mb-6">{description}</p>
-      {action}
+      {action && <div>{action}</div>}
     </div>
   );
 }

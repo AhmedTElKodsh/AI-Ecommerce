@@ -1,5 +1,5 @@
 // src/app/actions/categoryActions.ts
-import db from "@/lib/db";
+import db, { prisma } from "@/lib/db";
 
 // Modified to make the id parameter optional
 export async function getCategories(id?: string) {
@@ -36,7 +36,6 @@ export async function getCategories(id?: string) {
   }
 }
 
-
 // Added missing createCategory function
 export async function createCategory(data: {
   name: string;
@@ -65,24 +64,48 @@ export async function createCategory(data: {
   }
 }
 
+export async function getAllCategories() {
+  try {
+    const categories = await prisma.category.findMany({
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return { success: true, categories };
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return {
+      success: false,
+      categories: null,
+      error: "Failed to fetch categories",
+    };
+  }
+}
+
+// src/app/actions/categoryActions.ts
 export async function getCategoryById(id: string) {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/categories/${id}`,
-      {
-        cache: "no-store",
-      }
-    );
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: {
+        products: {
+          take: 5,
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
+    });
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch category");
+    if (!category) {
+      return { success: false, error: "Category not found" };
     }
 
-    const data = await response.json();
-    return { category: data, error: null };
+    return { success: true, category };
   } catch (error) {
-    console.error("Error fetching category:", error);
-    return { category: null, error: "Failed to load category details" };
+    console.error("Failed to fetch category:", error);
+    return { success: false, error: "Failed to fetch category" };
   }
 }
 

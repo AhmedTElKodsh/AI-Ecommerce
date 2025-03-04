@@ -3,21 +3,17 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import prisma from "@/lib/db";
 
 // Get cart from cookies
 export async function getCart() {
-  const cookieStore = await cookies();
-  const cartCookie = cookieStore.get("cart");
-
-  if (!cartCookie || !cartCookie.value) {
-    return [];
-  }
-
   try {
+    const cartCookie = (await cookies()).get("cart");
+    if (!cartCookie?.value) {
+      return [];
+    }
     return JSON.parse(cartCookie.value);
   } catch (error) {
-    console.error("Failed to parse cart cookie:", error);
+    console.error("Error parsing cart cookie:", error);
     return [];
   }
 }
@@ -26,161 +22,76 @@ export async function getCart() {
 export async function addToCart(formData: FormData) {
   try {
     const id = formData.get("id") as string;
+    const name = formData.get("name") as string;
+    const price = parseFloat(formData.get("price") as string);
     const quantity = parseInt(formData.get("quantity") as string);
+    const image = formData.get("image") as string | null;
 
-    if (!id || isNaN(quantity) || quantity <= 0) {
-      return { success: false, error: "Invalid product or quantity" };
+    if (!id || !name || isNaN(price) || isNaN(quantity)) {
+      return { success: false, error: "Invalid item data" };
     }
 
-    // Get product details
-    const product = await prisma.product.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        stock: true,
-        images: true,
-      },
-    });
+    const cart = await getCart();
 
-    if (!product) {
-      return { success: false, error: "Product not found" };
-    }
-
-    if (product.stock < quantity) {
-      return {
-        success: false,
-        error: `Only ${product.stock} items available`,
-      };
-    }
-
-    // Get current cart
-    const currentCart = await getCart();
-
-    // Check if product already exists in cart
-    const existingItemIndex = currentCart.findIndex(
-      (item: any) => item.id === id
-    );
-
-    let newCart;
+    const existingItemIndex = cart.findIndex((item: any) => item.id === id);
 
     if (existingItemIndex >= 0) {
-      // Update quantity if product already exists
-      newCart = [...currentCart];
-      const newQuantity = newCart[existingItemIndex].quantity + quantity;
-
-      // Check if new quantity exceeds stock
-      if (newQuantity > product.stock) {
-        return {
-          success: false,
-          error: `Cannot add ${quantity} more items. Only ${
-            product.stock - newCart[existingItemIndex].quantity
-          } more available.`,
-        };
-      }
-
-      newCart[existingItemIndex].quantity = newQuantity;
+      cart[existingItemIndex] = {
+        ...cart[existingItemIndex],
+        quantity: quantity,
+        price: price,
+        name: name,
+        image: image || cart[existingItemIndex].image,
+      };
     } else {
-      // Add new product to cart
-      newCart = [
-        ...currentCart,
-        {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          image:
-            product.images && product.images.length > 0
-              ? product.images[0]
-              : null,
-          quantity,
-        },
-      ];
+      cart.push({
+        id,
+        name,
+        price,
+        quantity,
+        image: image || undefined,
+      });
     }
 
-    // Save cart to cookies
-    (await
-      // Save cart to cookies
-      cookies()).set("cart", JSON.stringify(newCart), {
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: "/",
-    });
-
+    (await cookies()).set("cart", JSON.stringify(cart), { path: "/" });
     revalidatePath("/cart");
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to add item to cart:", error);
+    console.error("Error adding item to cart:", error);
     return { success: false, error: "Failed to add item to cart" };
   }
 }
 
-// Update cart item quantity
+// Update cart item quantity - Modified to accept FormData directly
 export async function updateCartItemQuantity(formData: FormData) {
   try {
     const id = formData.get("id") as string;
     const quantity = parseInt(formData.get("quantity") as string);
 
-    if (!id || isNaN(quantity)) {
-      return { success: false, error: "Invalid product or quantity" };
+    if (!id || isNaN(quantity) || quantity < 1) {
+      return { success: false, error: "Invalid item data" };
     }
 
-    // Get current cart
-    const currentCart = await getCart();
+    const cart = await getCart();
+    const existingItemIndex = cart.findIndex((item: any) => item.id === id);
 
-    // Find product in cart
-    const itemIndex = currentCart.findIndex((item: any) => item.id === id);
-
-    if (itemIndex === -1) {
-      return { success: false, error: "Product not found in cart" };
-    }
-
-    // If quantity is 0 or less, remove item from cart
-    if (quantity <= 0) {
-      const newCart = currentCart.filter((item: any) => item.id !== id);
-      (await cookies()).set("cart", JSON.stringify(newCart), {
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-        path: "/",
-      });
-      revalidatePath("/cart");
-      return { success: true };
-    }
-
-    // Check if quantity exceeds stock
-    const product = await prisma.product.findUnique({
-      where: { id },
-      select: { stock: true },
-    });
-
-    if (!product) {
-      return { success: false, error: "Product not found" };
-    }
-
-    if (product.stock < quantity) {
-      return {
-        success: false,
-        error: `Only ${product.stock} items available`,
+    if (existingItemIndex >= 0) {
+      cart[existingItemIndex] = {
+        ...cart[existingItemIndex],
+        quantity: quantity,
       };
+
+      (await cookies()).set("cart", JSON.stringify(cart), { path: "/" });
+      revalidatePath("/cart");
+
+      return { success: true };
+    } else {
+      return { success: false, error: "Item not found in cart" };
     }
-
-    // Update quantity
-    const newCart = [...currentCart];
-    newCart[itemIndex].quantity = quantity;
-
-    // Save cart to cookies
-    (await
-      // Save cart to cookies
-      cookies()).set("cart", JSON.stringify(newCart), {
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: "/",
-    });
-
-    revalidatePath("/cart");
-
-    return { success: true };
   } catch (error) {
-    console.error("Failed to update cart item quantity:", error);
-    return { success: false, error: "Failed to update cart item quantity" };
+    console.error("Error updating item quantity:", error);
+    return { success: false, error: "Failed to update item quantity" };
   }
 }
 
@@ -190,28 +101,18 @@ export async function removeFromCart(formData: FormData) {
     const id = formData.get("id") as string;
 
     if (!id) {
-      return { success: false, error: "Invalid product" };
+      return { success: false, error: "Invalid item ID" };
     }
 
-    // Get current cart
-    const currentCart = await getCart();
+    const cart = await getCart();
+    const updatedCart = cart.filter((item: any) => item.id !== id);
 
-    // Remove product from cart
-    const newCart = currentCart.filter((item: any) => item.id !== id);
-
-    // Save cart to cookies
-    (await
-      // Save cart to cookies
-      cookies()).set("cart", JSON.stringify(newCart), {
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: "/",
-    });
-
+    (await cookies()).set("cart", JSON.stringify(updatedCart), { path: "/" });
     revalidatePath("/cart");
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to remove item from cart:", error);
+    console.error("Error removing item from cart:", error);
     return { success: false, error: "Failed to remove item from cart" };
   }
 }
@@ -219,19 +120,12 @@ export async function removeFromCart(formData: FormData) {
 // Clear cart
 export async function clearCart() {
   try {
-    // Save empty cart to cookies
-    (await
-      // Save empty cart to cookies
-      cookies()).set("cart", "[]", {
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: "/",
-    });
-
+    (await cookies()).set("cart", "[]", { path: "/" });
     revalidatePath("/cart");
 
     return { success: true };
   } catch (error) {
-    console.error("Failed to clear cart:", error);
+    console.error("Error clearing cart:", error);
     return { success: false, error: "Failed to clear cart" };
   }
 }

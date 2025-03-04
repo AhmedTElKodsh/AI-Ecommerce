@@ -4,8 +4,11 @@ import { auth } from "@/auth";
 import Link from "next/link";
 import { FaUser, FaShoppingBag, FaHeart, FaCog } from "react-icons/fa";
 import prisma from "@/lib/db";
-import ProfileForm from "./ProfileForm";
-import PasswordForm from "./PasswordForm";
+import dynamic from "next/dynamic";
+
+// Use dynamic imports with no SSR for client components
+const ProfileForm = dynamic(() => import("./ProfileForm"), { ssr: false });
+const PasswordForm = dynamic(() => import("./PasswordForm"), { ssr: false });
 
 export const metadata = {
   title: "Account Settings | ShopNext",

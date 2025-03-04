@@ -1,3 +1,4 @@
+// src/components/providers/CartProvider.tsx
 "use client";
 
 import {
@@ -7,104 +8,137 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { toast } from "react-hot-toast";
 import {
-  getCart,
   addToCart,
-  updateCartItemQuantity,
   removeFromCart,
   clearCart as clearCartAction,
+  getCart,
 } from "@/app/actions/cartActions";
 
-type CartItem = {
+export interface CartItem {
   id: string;
   name: string;
   price: number;
-  image?: string;
   quantity: number;
-};
+  image?: string;
+}
 
-type CartContextType = {
+interface CartContextType {
   items: CartItem[];
-  itemCount: number;
-  total: number;
   addItem: (item: CartItem) => Promise<void>;
-  updateQuantity: (id: string, quantity: number) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
+  updateQuantity: (id: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
   isLoading: boolean;
-};
+  itemCount: number;
+  totalPrice: number;
+}
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Calculate total and item count
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const total = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-
-  // Load cart from cookies on client side
+  // Initialize cart from server
   useEffect(() => {
-    const loadCart = async () => {
+    const initializeCart = async () => {
       try {
-        setIsLoading(true);
-        const cartItems = await getCart();
-        setItems(cartItems);
+        const cartData = await getCart();
+        if (cartData) {
+          // Ensure all items have the correct types
+          const formattedCart = cartData.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+            image: item.image,
+          }));
+          setItems(formattedCart);
+        }
       } catch (error) {
-        console.error("Error loading cart:", error);
+        console.error("Failed to initialize cart:", error);
       } finally {
-        setIsLoading(false);
+        setIsInitialized(true);
       }
     };
 
-    loadCart();
+    initializeCart();
   }, []);
 
   // Add item to cart
   const addItem = async (item: CartItem) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
-      // Optimistically update UI
-      const existingItemIndex = items.findIndex((i) => i.id === item.id);
-      let newItems: CartItem[];
-
-      if (existingItemIndex >= 0) {
-        // Update quantity if item exists
-        newItems = [...items];
-        newItems[existingItemIndex].quantity += item.quantity;
-      } else {
-        // Add new item
-        newItems = [...items, item];
-      }
-
-      setItems(newItems);
-
-      // Submit form data to server action
       const formData = new FormData();
       formData.append("id", item.id);
       formData.append("name", item.name);
       formData.append("price", item.price.toString());
+      formData.append("quantity", item.quantity.toString());
       if (item.image) {
         formData.append("image", item.image);
       }
-      formData.append("quantity", item.quantity.toString());
 
-      // Call server action
       const result = await addToCart(formData);
 
-      if ("error" in result) {
-        throw new Error(result.error);
+      if (result.success) {
+        const updatedCart = await getCart();
+        if (updatedCart) {
+          const formattedCart = updatedCart.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+            image: item.image,
+          }));
+          setItems(formattedCart);
+        }
+        toast.success(`Added ${item.name} to cart`);
+      } else {
+        toast.error("Failed to add item to cart");
+        console.error("Failed to add item to cart:", result.error);
       }
     } catch (error) {
-      console.error("Error adding item to cart:", error);
-      // Revert optimistic update on error
-      const cartItems = await getCart();
-      setItems(cartItems);
+      toast.error("Failed to add item to cart");
+      console.error("Failed to add item to cart:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Remove item from cart
+  const removeItem = async (id: string) => {
+    setIsLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("id", id);
+
+      const result = await removeFromCart(formData);
+
+      if (result.success) {
+        const updatedCart = await getCart();
+        if (updatedCart) {
+          const formattedCart = updatedCart.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+            image: item.image,
+          }));
+          setItems(formattedCart);
+        } else {
+          setItems([]);
+        }
+        toast.success("Item removed from cart");
+      } else {
+        toast.error("Failed to remove item from cart");
+        console.error("Failed to remove item from cart:", result.error);
+      }
+    } catch (error) {
+      toast.error("Failed to remove item from cart");
+      console.error("Failed to remove item from cart:", error);
     } finally {
       setIsLoading(false);
     }
@@ -114,60 +148,54 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const updateQuantity = async (id: string, quantity: number) => {
     if (quantity < 1) return;
 
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
-      // Optimistically update UI
-      const newItems = items.map((item) =>
-        item.id === id ? { ...item, quantity } : item
-      );
-      setItems(newItems);
-
-      // Submit form data to server action
       const formData = new FormData();
       formData.append("id", id);
       formData.append("quantity", quantity.toString());
 
-      // Call server action
-      const result = await updateCartItemQuantity(null, formData);
+      // Find the item to update
+      const itemToUpdate = items.find((item) => item.id === id);
+      if (!itemToUpdate) {
+        throw new Error("Item not found in cart");
+      }
 
-      if ("error" in result) {
-        throw new Error(result.error);
+      // Create a new FormData with all the required fields
+      const fullFormData = new FormData();
+      fullFormData.append("id", id);
+      fullFormData.append("name", itemToUpdate.name);
+      fullFormData.append("price", itemToUpdate.price.toString());
+      fullFormData.append("quantity", quantity.toString());
+      if (itemToUpdate.image) {
+        fullFormData.append("image", itemToUpdate.image);
+      }
+
+      // Remove the item first
+      await removeFromCart(formData);
+
+      // Then add it back with the new quantity
+      const result = await addToCart(fullFormData);
+
+      if (result.success) {
+        const updatedCart = await getCart();
+        if (updatedCart) {
+          const formattedCart = updatedCart.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.price),
+            quantity: Number(item.quantity),
+            image: item.image,
+          }));
+          setItems(formattedCart);
+        }
+        toast.success("Cart updated");
+      } else {
+        toast.error("Failed to update cart");
+        console.error("Failed to update cart:", result.error);
       }
     } catch (error) {
-      console.error("Error updating cart:", error);
-      // Revert optimistic update on error
-      const cartItems = await getCart();
-      setItems(cartItems);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Remove item from cart
-  const removeItem = async (id: string) => {
-    try {
-      setIsLoading(true);
-
-      // Optimistically update UI
-      const newItems = items.filter((item) => item.id !== id);
-      setItems(newItems);
-
-      // Submit form data to server action
-      const formData = new FormData();
-      formData.append("id", id);
-
-      // Call server action
-      const result = await removeFromCart(formData);
-
-      if ("error" in result) {
-        throw new Error(result.error);
-      }
-    } catch (error) {
-      console.error("Error removing item from cart:", error);
-      // Revert optimistic update on error
-      const cartItems = await getCart();
-      setItems(cartItems);
+      toast.error("Failed to update cart");
+      console.error("Failed to update cart:", error);
     } finally {
       setIsLoading(false);
     }
@@ -175,39 +203,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // Clear cart
   const clearCart = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
-      // Optimistically update UI
-      setItems([]);
-
-      // Call server action
       const result = await clearCartAction();
 
-      if ("error" in result) {
-        throw new Error(result.error);
+      if (result.success) {
+        setItems([]);
+        toast.success("Cart cleared");
+      } else {
+        toast.error("Failed to clear cart");
+        console.error("Failed to clear cart:", result.error);
       }
     } catch (error) {
-      console.error("Error clearing cart:", error);
-      // Revert optimistic update on error
-      const cartItems = await getCart();
-      setItems(cartItems);
+      toast.error("Failed to clear cart");
+      console.error("Failed to clear cart:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Calculate totals
+  const itemCount = items.reduce((total, item) => total + item.quantity, 0);
+  const totalPrice = items.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
+  );
+
   return (
     <CartContext.Provider
       value={{
         items,
-        itemCount,
-        total,
         addItem,
-        updateQuantity,
         removeItem,
+        updateQuantity,
         clearCart,
         isLoading,
+        itemCount,
+        totalPrice,
       }}
     >
       {children}
@@ -217,7 +249,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useCart must be used within a CartProvider");
   }
   return context;

@@ -1,46 +1,49 @@
 // src/app/checkout/page.tsx
-import { getCart } from "@/app/actions/cartActions";
+import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { getCart } from "@/app/actions/cartActions";
+import { CheckoutForm } from "@/components/checkout/CheckoutForm"; // Use named import
+import OrderSummary from "@/components/checkout/OrderSummary";
 import Link from "next/link";
 import { FaArrowLeft } from "react-icons/fa";
-import CheckoutForm from "./CheckoutForm"; // Use relative import since it's in the same directory
-import OrderSummary from "@/components/checkout/OrderSummary";
-import { auth } from "@/auth";
 
 export const metadata = {
-  title: "Checkout | ShopNext",
+  title: "Checkout | NextShop",
   description: "Complete your purchase",
 };
 
-// Define the cart item type
-type CartItem = {
-  id: string;
-  name: string;
-  price: number;
-  image?: string;
-  quantity: number;
-};
-
 export default async function CheckoutPage() {
-  const cartItems = (await getCart()) as CartItem[];
   const session = await auth();
+  const cartData = await getCart();
+
+  // Ensure cart items are properly typed
+  const cartItems = Array.isArray(cartData)
+    ? cartData.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        price: Number(item.price),
+        quantity: Number(item.quantity),
+        image: item.image,
+      }))
+    : [];
 
   // Redirect to cart if cart is empty
-  if (cartItems.length === 0) {
+  if (!cartItems || cartItems.length === 0) {
     redirect("/cart");
   }
 
-  // Calculate totals
+  // Calculate cart totals
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
   const shipping = 0; // Free shipping for now
-  const total = subtotal + shipping;
+  const tax = subtotal * 0.1; // 10% tax
+  const total = subtotal + shipping + tax;
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
+      <div className="mb-8">
         <Link
           href="/cart"
           className="text-indigo-600 hover:text-indigo-800 flex items-center"
@@ -51,15 +54,19 @@ export default async function CheckoutPage() {
 
       <h1 className="text-3xl font-bold mb-8">Checkout</h1>
 
-      <div className="lg:grid lg:grid-cols-12 lg:gap-8">
-        {/* Checkout Form */}
-        <div className="lg:col-span-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
           <CheckoutForm isLoggedIn={!!session} />
         </div>
 
-        {/* Order Summary */}
-        <div className="lg:col-span-4 mt-8 lg:mt-0">
-          <OrderSummary cartItems={cartItems} />
+        <div>
+          <OrderSummary
+            items={cartItems}
+            subtotal={subtotal}
+            shipping={shipping}
+            tax={tax}
+            total={total}
+          />
         </div>
       </div>
     </div>

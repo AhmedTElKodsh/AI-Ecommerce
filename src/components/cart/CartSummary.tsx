@@ -12,7 +12,7 @@ type CartItem = {
 };
 
 export default function CartSummary({ items }: { items: CartItem[] }) {
-  const { totalPrice } = useCart();
+  useCart();
   
   // Calculate subtotal
   const subtotal = items.reduce(

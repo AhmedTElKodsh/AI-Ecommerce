@@ -1,14 +1,19 @@
 // src/app/categories/[id]/page.tsx
-import { getCategories } from "@/app/actions/categoryActions";
-import { getProducts } from "@/app/actions/productActions";
+import { getCategoryById } from "@/app/actions/categoryActions";
+import { getProductsByCategory } from "@/app/actions/productActions";
+import { getAllCategories } from "@/app/actions/categoryActions";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { FaStar } from "react-icons/fa";
-import SortDropdown from "@/components/SortDropdown";
+import SortSelector from "@/components/SortSelector";
+import PriceFilter from "@/components/PriceFilter";
+import CategoryFilter from "@/components/CategoryFilter";
+import ProductCard from "@/components/products/ProductCard";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
-  const { category, success } = await getCategories(params.id);
+  const { category, success } = await getCategoryById(params.id);
 
   if (!success || !category) {
     return {
@@ -20,8 +25,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   return {
     title: `${category.name} | ShopNext`,
     description:
-      category.description ||
-      `Browse our collection of ${category.name} products`,
+      category.description || `Browse our ${category.name} collection`,
   };
 }
 
@@ -30,224 +34,149 @@ export default async function CategoryPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { page?: string; sort?: string };
+  searchParams: {
+    page?: string;
+    sort?: string;
+    minPrice?: string;
+    maxPrice?: string;
+  };
 }) {
-  const {
-    category,
-    success: categorySuccess,
-    error: categoryError,
-  } = await getCategories(params.id);
+  const { category, success: categorySuccess } = await getCategoryById(
+    params.id
+  );
 
   if (!categorySuccess || !category) {
     notFound();
   }
 
-  // Parse search params
-  const page = searchParams.page ? parseInt(searchParams.page) : 1;
-  const sort = searchParams.sort || "newest";
+  // Get all categories for the sidebar filter
+  const { categories } = await getAllCategories();
 
-  // Fetch products in this category
+  const page = parseInt(searchParams.page || "1");
+  const sort = searchParams.sort || "newest";
+  const minPrice = searchParams.minPrice;
+  const maxPrice = searchParams.maxPrice;
+
+  // Pass price filters to product search if provided
+  const filters: any = {};
+  if (minPrice) filters.minPrice = parseFloat(minPrice);
+  if (maxPrice) filters.maxPrice = parseFloat(maxPrice);
+
   const {
-    products = [],
-    pagination,
+    products,
     success: productsSuccess,
-    error: productsError,
-  } = await getProducts({
-    page,
-    limit: 12,
-    categoryId: params.id,
-    sort,
-  });
+    pagination,
+  } = await getProductsByCategory(params.id, page, 12, sort, filters);
+
+  const safeProducts = products || [];
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <Link
-          href="/categories"
-          className="text-indigo-600 hover:text-indigo-800"
-        >
-          ← Back to Categories
-        </Link>
-      </div>
-
-      {/* Category Header */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="relative h-64 md:h-80">
-          {category.image ? (
-            <Image
-              src={category.image}
-              alt={category.name}
-              fill
-              sizes="100vw"
-              className="object-cover"
-              priority
-            />
-          ) : (
-            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">
-              No image available
-            </div>
-          )}
-          <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-white text-center">
-              {category.name}
-            </h1>
-          </div>
-        </div>
-
+        <h1 className="text-3xl font-bold mb-2">{category.name}</h1>
         {category.description && (
-          <div className="p-6 border-t border-gray-200">
-            <p className="text-gray-700">{category.description}</p>
-          </div>
+          <p className="text-gray-600">{category.description}</p>
         )}
       </div>
 
-      {/* Products Section */}
-      <div>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Products</h2>
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Left sidebar filter section */}
+        <div className="w-full md:w-1/4 lg:w-1/5">
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <h2 className="font-semibold text-lg mb-4">Filters</h2>
 
-          {/* Replace form with client component */}
-          <SortDropdown
-            currentSort={sort}
-            categoryId={params.id}
-            currentPage={page}
-          />
+            {/* Category filter */}
+            <CategoryFilter
+              categories={categories || []}
+              selectedCategoryId={params.id}
+            />
+
+            {/* Price Range Filter */}
+            <PriceFilter
+              initialMinPrice={minPrice}
+              initialMaxPrice={maxPrice}
+              categoryId={params.id}
+              page={page}
+              sort={sort}
+            />
+          </div>
         </div>
 
-        {productsError && (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-            <p className="text-red-700">{productsError}</p>
+        {/* Main content */}
+        <div className="w-full md:w-3/4 lg:w-4/5">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Products</h2>
+            <SortSelector
+              sort={sort}
+              categoryId={params.id}
+              page={page}
+              additionalParams={{
+                minPrice: minPrice || "",
+                maxPrice: maxPrice || "",
+              }}
+            />
           </div>
-        )}
 
-        {productsSuccess && products.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <h3 className="text-xl font-semibold mb-4">No products found</h3>
-            <p className="text-gray-600 mb-6">
-              We don't have any products in this category yet.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.map((product) => (
-                <Link
-                  key={product.id}
-                  href={`/products/${product.id}`}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-                >
-                  <div className="relative aspect-square">
-                    {product.images && product.images.length > 0 ? (
-                      <Image
-                        src={product.images[0]}
-                        alt={product.name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">
-                        No image
-                      </div>
-                    )}
-                    {product.stock <= 0 && (
-                      <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
-                        Out of Stock
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-2 line-clamp-1">
-                      {product.name}
-                    </h3>
-                    <div className="flex items-center mb-2">
-                      <div className="flex text-yellow-400">
-                        <FaStar />
-                        <span className="ml-1 text-gray-600">
-                          {product.reviews && product.reviews.length > 0
-                            ? product.avgRating?.toFixed(1) || "4.0"
-                            : "No reviews"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-lg font-bold text-indigo-600">
-                      ${product.price.toFixed(2)}
-                    </div>
-                  </div>
-                </Link>
-              ))}
+          {!productsSuccess ? (
+            <div className="bg-white rounded-lg shadow-md p-8 text-center">
+              <h3 className="text-xl font-semibold mb-4">
+                Error loading products
+              </h3>
+              <p className="text-gray-600 mb-6">
+                There was a problem loading the products. Please try again
+                later.
+              </p>
             </div>
-
-            {/* Pagination */}
-            {pagination && pagination.pages > 1 && (
-              <div className="mt-8 flex justify-center">
-                <div className="flex space-x-2">
-                  {pagination.current > 1 && (
-                    <Link
-                      href={`/categories/${params.id}?page=${
-                        pagination.current - 1
-                      }${sort ? `&sort=${sort}` : ""}`}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                    >
-                      Previous
-                    </Link>
-                  )}
-
-                  {/* Page numbers */}
-                  <div className="flex space-x-2">
-                    {Array.from({ length: pagination.pages }, (_, i) => i + 1)
-                      .filter(
-                        (p) =>
-                          p === 1 ||
-                          p === pagination.pages ||
-                          Math.abs(p - pagination.current) <= 1
-                      )
-                      .map((p, i, arr) => {
-                        // Add ellipsis
-                        if (i > 0 && p - arr[i - 1] > 1) {
-                          return (
-                            <span
-                              key={`ellipsis-${p}`}
-                              className="px-4 py-2 border border-gray-300 rounded-md text-gray-400"
-                            >
-                              ...
-                            </span>
-                          );
-                        }
-
-                        return (
-                          <Link
-                            key={p}
-                            href={`/categories/${params.id}?page=${p}${
-                              sort ? `&sort=${sort}` : ""
-                            }`}
-                            className={`px-4 py-2 border rounded-md ${
-                              p === pagination.current
-                                ? "bg-indigo-600 text-white border-indigo-600"
-                                : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            {p}
-                          </Link>
-                        );
-                      })}
-                  </div>
-
-                  {pagination.current < pagination.pages && (
-                    <Link
-                      href={`/categories/${params.id}?page=${
-                        pagination.current + 1
-                      }${sort ? `&sort=${sort}` : ""}`}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                    >
-                      Next
-                    </Link>
-                  )}
-                </div>
+          ) : safeProducts.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-md p-8 text-center">
+              <h3 className="text-xl font-semibold mb-4">No products found</h3>
+              <p className="text-gray-600 mb-6">
+                We don't have any products in this category yet.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {safeProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
               </div>
-            )}
-          </>
-        )}
+
+              {/* Pagination */}
+              {pagination && pagination.pages > 1 && (
+                <div className="flex justify-center mt-8">
+                  <nav className="inline-flex">
+                    {Array.from(
+                      { length: pagination.pages },
+                      (_, i) => i + 1
+                    ).map((pageNum) => {
+                      // Create URL with all current parameters
+                      const url = new URLSearchParams();
+                      url.set("page", pageNum.toString());
+                      url.set("sort", sort);
+                      if (minPrice) url.set("minPrice", minPrice);
+                      if (maxPrice) url.set("maxPrice", maxPrice);
+
+                      return (
+                        <Link
+                          key={pageNum}
+                          href={`/categories/${params.id}?${url.toString()}`}
+                          className={`px-4 py-2 border ${
+                            pageNum === pagination.current
+                              ? "bg-indigo-600 text-white"
+                              : "bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          {pageNum}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

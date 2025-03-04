@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FaTrash, FaSpinner } from "react-icons/fa";
+import { FaSpinner } from "react-icons/fa";
 import { useCart } from "@/components/providers/CartProvider";
 
 export default function ClearCartButton() {
@@ -14,11 +14,10 @@ export default function ClearCartButton() {
 
   const handleClearCart = async () => {
     setIsClearing(true);
-    
     try {
-      clearCart();
-      router.refresh();
+      await clearCart();
       setShowConfirm(false);
+      router.refresh();
     } catch (error) {
       console.error("Failed to clear cart:", error);
     } finally {
@@ -30,21 +29,18 @@ export default function ClearCartButton() {
     return (
       <div className="flex items-center space-x-2">
         <button
-          onClick={handleClearCart}
-          disabled={isClearing}
-          className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
-        >
-          {isClearing ? (
-            <FaSpinner className="animate-spin" />
-          ) : (
-            "Confirm"
-          )}
-        </button>
-        <button
           onClick={() => setShowConfirm(false)}
-          className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+          disabled={isClearing}
+          className="text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50 text-sm"
         >
           Cancel
+        </button>
+        <button
+          onClick={handleClearCart}
+          disabled={isClearing}
+          className="text-red-500 hover:text-red-700 transition-colors disabled:opacity-50 text-sm font-medium"
+        >
+          {isClearing ? <FaSpinner className="animate-spin" /> : "Confirm"}
         </button>
       </div>
     );
@@ -53,9 +49,9 @@ export default function ClearCartButton() {
   return (
     <button
       onClick={() => setShowConfirm(true)}
-      className="text-gray-600 hover:text-red-600 text-sm font-medium flex items-center"
+      className="text-red-500 hover:text-red-700 transition-colors text-sm"
     >
-      <FaTrash className="mr-1" /> Clear Cart
+      Clear Cart
     </button>
   );
 }

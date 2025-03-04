@@ -1,3 +1,4 @@
+// src/app/admin/products/[id]/page.tsx
 import { getProductById } from "@/app/actions/productActions";
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -81,7 +82,7 @@ export default async function ProductPage({
             <div className="relative h-96 md:h-full">
               {product.images && product.images.length > 0 ? (
                 <Image
-                  src={product.images[0]}
+                  src={product.images[0] || "/placeholder-image.jpg"} // Add fallback
                   alt={product.name}
                   fill
                   sizes="(max-width: 768px) 100vw, 50vw"

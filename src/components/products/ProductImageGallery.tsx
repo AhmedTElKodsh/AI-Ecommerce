@@ -4,15 +4,15 @@
 import { useState } from "react";
 import Image from "next/image";
 
-export default function ProductImageGallery({ 
-  images, 
-  productName 
-}: { 
-  images: string[]; 
+export default function ProductImageGallery({
+  images,
+  productName,
+}: {
+  images: string[];
   productName: string;
 }) {
   const [selectedImage, setSelectedImage] = useState(0);
-  
+
   if (!images || images.length === 0) {
     return (
       <div className="relative h-96 bg-gray-100 rounded-lg overflow-hidden mb-4">
@@ -22,12 +22,12 @@ export default function ProductImageGallery({
       </div>
     );
   }
-  
+
   return (
     <div>
       <div className="relative h-96 bg-gray-100 rounded-lg overflow-hidden mb-4">
         <Image
-          src={images[selectedImage]}
+          src={images[selectedImage] || ""}
           alt={productName}
           fill
           sizes="(max-width: 768px) 100vw, 50vw"
@@ -48,7 +48,7 @@ export default function ProductImageGallery({
               }`}
             >
               <Image
-                src={image}
+                src={image || ""}
                 alt={`${productName} - Image ${index + 1}`}
                 fill
                 sizes="80px"

@@ -137,7 +137,7 @@ export default async function ProductsAdminPage({
                           <div className="h-10 w-10 flex-shrink-0 relative">
                             {product.images && product.images.length > 0 ? (
                               <Image
-                                src={product.images[0]}
+                                src={product.images[0] || "/placeholder.png"}
                                 alt={product.name}
                                 fill
                                 sizes="40px"
@@ -221,16 +221,19 @@ export default async function ProductsAdminPage({
                       Math.abs(p - pagination.current) <= 1
                   )
                   .map((p, i, arr) => {
-                    // Add ellipsis
-                    if (i > 0 && p - arr[i - 1] > 1) {
-                      return (
-                        <span
-                          key={`ellipsis-${p}`}
-                          className="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-400"
-                        >
-                          ...
-                        </span>
-                      );
+                    // Add ellipsis - Fixed TypeScript error by restructuring the condition
+                    if (i > 0) {
+                      const prevPage = arr[i - 1];
+                      if (prevPage !== undefined && p - prevPage > 1) {
+                        return (
+                          <span
+                            key={`ellipsis-${p}`}
+                            className="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-400"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
                     }
 
                     return (

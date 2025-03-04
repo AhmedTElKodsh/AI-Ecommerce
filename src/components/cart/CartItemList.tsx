@@ -16,15 +16,15 @@ type CartItem = {
 };
 
 export default function CartItemList({ items }: { items: CartItem[] }) {
-  const { updateItemQuantity, removeItem } = useCart();
-  
+  const { updateQuantity, removeItem } = useCart();
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Cart Items ({items.length})</h2>
         <ClearCartButton />
       </div>
-      
+
       <div className="divide-y divide-gray-200">
         {items.map((item) => (
           <div key={item.id} className="py-6 flex flex-wrap md:flex-nowrap">
@@ -44,7 +44,7 @@ export default function CartItemList({ items }: { items: CartItem[] }) {
                 </div>
               )}
             </div>
-            
+
             {/* Product Details */}
             <div className="md:ml-6 flex-grow">
               <Link
@@ -53,15 +53,17 @@ export default function CartItemList({ items }: { items: CartItem[] }) {
               >
                 {item.name}
               </Link>
-              
+
               <div className="mt-1 text-gray-500">
                 ${item.price.toFixed(2)} each
               </div>
-              
+
               <div className="mt-4 flex items-center">
                 <div className="flex items-center border border-gray-300 rounded-md">
                   <button
-                    onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
+                    onClick={() =>
+                      updateQuantity(item.id, item.quantity - 1)
+                    }
                     className="px-3 py-1 text-gray-600 hover:bg-gray-100"
                   >
                     -
@@ -70,13 +72,15 @@ export default function CartItemList({ items }: { items: CartItem[] }) {
                     {item.quantity}
                   </span>
                   <button
-                    onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
+                    onClick={() =>
+                      updateQuantity(item.id, item.quantity + 1)
+                    }
                     className="px-3 py-1 text-gray-600 hover:bg-gray-100"
                   >
                     +
                   </button>
                 </div>
-                
+
                 <button
                   onClick={() => removeItem(item.id)}
                   className="ml-4 text-red-600 hover:text-red-800"
@@ -86,7 +90,7 @@ export default function CartItemList({ items }: { items: CartItem[] }) {
                 </button>
               </div>
             </div>
-            
+
             {/* Price */}
             <div className="w-full md:w-auto mt-4 md:mt-0 text-right">
               <div className="text-lg font-semibold">
